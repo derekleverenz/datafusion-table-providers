@@ -51,15 +51,18 @@ impl<T, P> SQLiteTable<T, P> {
 
     fn create_physical_plan(
         &self,
-        projection: Option<&Vec<usize>>,
+        projections: Option<&Vec<usize>>,
         schema: &SchemaRef,
-        sql: String,
+        filters: &[Expr],
+        limit: Option<usize>,
     ) -> DataFusionResult<Arc<dyn ExecutionPlan>> {
         Ok(Arc::new(SQLiteSqlExec::new(
-            projection,
+            projections,
             schema,
+            &self.base_table.table_reference,
             self.base_table.clone_pool(),
-            sql,
+            filters,
+            limit,
         )?))
     }
 }
@@ -92,8 +95,7 @@ impl<T, P> TableProvider for SQLiteTable<T, P> {
         filters: &[Expr],
         limit: Option<usize>,
     ) -> DataFusionResult<Arc<dyn ExecutionPlan>> {
-        let sql = self.base_table.scan_to_sql(projection, filters, limit)?;
-        return self.create_physical_plan(projection, &self.schema(), sql);
+        return self.create_physical_plan(projection, &self.schema(), filters, limit);
     }
 }
 
@@ -110,12 +112,22 @@ struct SQLiteSqlExec<T, P> {
 
 impl<T, P> SQLiteSqlExec<T, P> {
     fn new(
-        projection: Option<&Vec<usize>>,
+        projections: Option<&Vec<usize>>,
         schema: &SchemaRef,
+        table_reference: &TableReference,
         pool: Arc<dyn DbConnectionPool<T, P> + Send + Sync>,
-        sql: String,
+        filters: &[Expr],
+        limit: Option<usize>,
     ) -> DataFusionResult<Self> {
-        let base_exec = SqlExec::new(projection, schema, pool, sql)?;
+        let base_exec = SqlExec::new(
+            projections,
+            schema,
+            table_reference,
+            pool,
+            filters,
+            limit,
+            Some(Engine::SQLite),
+        )?;
 
         Ok(Self { base_exec })
     }
