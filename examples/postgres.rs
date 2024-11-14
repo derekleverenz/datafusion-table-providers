@@ -6,6 +6,26 @@ use datafusion_table_providers::{
     util::secrets::to_secret_map,
 };
 
+use tracing_subscriber::{
+    filter::{EnvFilter, LevelFilter},
+    layer::SubscriberExt,
+    util::SubscriberInitExt,
+};
+
+/// Initialize tracing-based log exporter
+pub fn init_logging() {
+    // use pretty logs for now. Later we can make an alternate layer that will emit
+    // json logs, for running as a live service
+    let loglayer = tracing_subscriber::fmt::layer().pretty();
+
+    let subscriber = tracing_subscriber::registry().with(loglayer).with(
+        EnvFilter::builder()
+            .with_default_directive(LevelFilter::INFO.into())
+            .from_env_lossy(),
+    );
+    subscriber.try_init().ok();
+}
+
 /// This example demonstrates how to register a table provider into DataFusion that
 /// uses a Postgres table as its source.
 ///
@@ -28,6 +48,8 @@ use datafusion_table_providers::{
 /// ```
 #[tokio::main]
 async fn main() {
+    init_logging();
+
     let postgres_params = to_secret_map(HashMap::from([
         ("host".to_string(), "localhost".to_string()),
         ("user".to_string(), "postgres".to_string()),
@@ -58,6 +80,13 @@ async fn main() {
 
     let df = ctx
         .sql("SELECT * FROM companies")
+        .await
+        .expect("select failed");
+
+    df.show().await.expect("show failed");
+
+    let df = ctx
+        .sql("SELECT name FROM companies")
         .await
         .expect("select failed");
 
