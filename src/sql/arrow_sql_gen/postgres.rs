@@ -9,7 +9,7 @@ use bigdecimal::num_bigint::Sign;
 use bigdecimal::BigDecimal;
 use bigdecimal::ToPrimitive;
 use byteorder::{BigEndian, ReadBytesExt};
-use chrono::{DateTime, Offset, Timelike, Utc};
+use chrono::{DateTime, Timelike, Utc};
 use composite::CompositeType;
 use datafusion::arrow::array::{
     ArrayBuilder, ArrayRef, BinaryBuilder, BooleanBuilder, Date32Builder, Decimal128Builder,
@@ -530,7 +530,7 @@ pub fn rows_to_arrow(rows: &[Row], projected_schema: &Option<SchemaRef>) -> Resu
                             pg_type: Type::TIMESTAMPTZ,
                         })?;
 
-                    let time_zone = v.unwrap_or_default().offset().fix();
+                    let time_zone = v.unwrap_or_default().timezone().to_string();
                     let timestampz_builder = builder.get_or_insert_with(|| {
                         Box::new(
                             TimestampNanosecondBuilder::new().with_timezone(time_zone.to_string()),
